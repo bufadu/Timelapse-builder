@@ -1,0 +1,109 @@
+#!/bin/bash
+# #####################################################################
+# This script builds a timelapse video from
+# image files. Needs ffmpeg (tested with ffmpeg 0.10.4 on ubuntu 10.04)
+#
+# Author: bufadu
+# https://github.com/bufadu
+# Started on july 2012
+# #####################################################################
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# any later version.
+# #####################################################################
+
+# colors escape sequences
+TEXT_BOLD="\\033[1m"
+TEXT_YELLOW="\\033[1;33m"
+TEXT_GREEN="\\033[1;32m"
+TEXT_RED="\\033[1;31m"
+TEXT_NORMAL="\\033[0;39m"
+TEXT_RAZ="\\033[0m"
+
+# Source files extension list
+SUPPORTED_EXT='jpg|JPG|png'
+
+function usage
+{
+    cat <<EOF
+
+usage: $0 DIRECTORY [FPS] [QUALITY]"
+
+FPS       : default 20
+QUALITY
+  480     : 480 horizontal lines and width depends of original image size ratio
+  720x480 : forced size of 720x480
+  720
+  1280x720
+  1080
+  1920x1080
+  4k
+  4096x2160
+
+Exemple:
+$0 /PHOTOS/DIR/
+-> 20 fps, same size as source images
+
+$0 /PHOTOS/DIR 12 720
+-> 12 fps, height 720 px, width depending on original size ratio
+
+EOF
+    exit 1
+}
+
+[ $# -lt 1 ] && usage
+[ "$1" == "help" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ] && usage
+([ ! -d "$1" ] || [ ! -r "$1" ]) && echo -e $TEXT_RED"Error: invalid directory"$TEXT_RAZ && exit 1
+
+FPS=20
+[ $# -gt 1 ] && [ $2 -gt 0 ] && FPS=$2
+
+PWD=`pwd`
+SOURCE=`cd "$1"; pwd`
+SEED=`date +%Y%m%d%k%M`
+DEST="dest_$SEED"
+DEST_FILE=$PWD"/"$SEED"_output_"$FPS"fps.mp4"
+
+[ -e $DEST ] && echo -e $TEXT_RED"Error: $DEST already exists"$TEXT_RAZ && exit 1
+mkdir -p $DEST
+
+echo -en $TEXT_YELLOW"Building image list... "$TEXT_RAZ
+i=0
+find "$SOURCE" -regextype posix-extended -regex '.*('$SUPPORTED_EXT')$' | while read file
+do
+    NAME=$(printf "img_%05d.jpg" ${i})
+    ln -s "$file" $DEST/$NAME
+    i=$((i+1))
+done
+echo -e $TEXT_GREEN"Done."$TEXT_RAZ
+
+cd $DEST
+
+echo -en $TEXT_YELLOW"Assembling Timelapse at $FPS fps"
+SCALE=""
+if [ $# -gt 2 ]; then
+    [ $3 == "480" ] && SCALE="-vf scale=-1:480" && echo " scaled at 480p"
+    [ $3 == "720x480" ] && SCALE="-vf scale=720:480" && echo " resized at 480p"
+    [ $3 == "720" ] && SCALE="-vf scale=-1:720" && echo " scaled at 720p"
+    [ $3 == "1280x720" ] && SCALE="-vf scale=1280:720" && echo " resize at 720p"
+    [ $3 == "1080" ] && SCALE="-vf scale=-1:1080" && echo " scaled at 1080p"
+    [ $3 == "1920x1080" ] && SCALE="-vf scale=1920:1080" && echo " resized at 1080p"
+    [ $3 == "4k" ] && SCALE="-vf scale=-1:2160" && echo " scaled at 4k"
+    [ $3 == "4096x2160" ] && SCALE="-vf scale=4096:2160" && echo " resized at 4k"
+fi
+echo -e $TEXT_RAZ
+echo "---------------- ffmpeg output ----------------"
+ffmpeg -f image2 -r $FPS -i 'img_%05d.jpg' -sameq $SCALE -r 30 -y $DEST_FILE
+echo "-----------------------------------------------"
+
+cd -
+echo -en $TEXT_YELLOW"Cleaning temp files... "$TEXT_RAZ
+rm -rf $DEST
+echo -e $TEXT_GREEN"Done."$TEXT_RAZ
+
+echo -e $TEXT_GREEN"\n... DONE ..."$TEXT_RAZ
+echo "Result video file info: "
+ffmpeg -i $DEST_FILE 2>&1 | grep Stream
+
+exit 0
