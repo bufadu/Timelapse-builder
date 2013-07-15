@@ -94,12 +94,12 @@ if [ $# -gt 2 ]; then
 fi
 echo -e $TEXT_RAZ
 echo "---------------- ffmpeg output ----------------"
-ffmpeg -f image2 -r $FPS -i 'img_%05d.jpg' -sameq $SCALE -r 30 -y $DEST_FILE
+avconv -f image2 -r $FPS -i img_%05d.jpg -same_quant $SCALE -r 30 -y "$DEST_FILE"
 echo "-----------------------------------------------"
 
 cd -
 echo -en $TEXT_YELLOW"Cleaning temp files... "$TEXT_RAZ
-rm -rf $DEST
+#rm -rf $DEST
 echo -e $TEXT_GREEN"Done."$TEXT_RAZ
 
 echo -e $TEXT_GREEN"\n... DONE ..."$TEXT_RAZ
